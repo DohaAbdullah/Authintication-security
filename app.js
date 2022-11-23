@@ -119,27 +119,32 @@ app.get("/register", (req, res) => {
 });
 
 app.get("/secrets", (req, res) => {
-  if (req.isAuthenticated) {
-    res.render("secrets");
-  } else {
-    res.redirect("/");
-  }
+  // if (req.isAuthenticated) {
+  //   res.render("secrets");
+  // } else {
+  //   res.redirect("/");
+  // }
+
+  User.find({ secret: { $ne: null } }, function (err, users) {
+    if (err) {
+      console.log(err);
+    } else {
+      res.render("secrets", { usersWithSecrets: users });
+    }
+  });
 });
 
 app.post("/register", (req, res) => {
-  User.register(
-    { username: req.body.username },
-    req.body.password,
-    function (err, user) {
-      if (err) {
-        res.send(err);
-      } else {
-        passport.authenticate("local")(req, res, function () {
-          res.redirect("secrets");
-        });
-      }
+  const { username, password } = req.body;
+  User.register({ username: username }, password, function (err, user) {
+    if (err) {
+      res.send(err);
+    } else {
+      passport.authenticate("local")(req, res, function () {
+        res.redirect("/secrets");
+      });
     }
-  );
+  });
 });
 
 app.post("/login", function (req, res) {
@@ -150,14 +155,44 @@ app.post("/login", function (req, res) {
 
   req.login(user, function (err) {
     if (err) {
-      console.log(err);
       res.send(err);
     } else {
       passport.authenticate("local")(req, res, function () {
-        res.redirect("/secrets");
+        res.render("submit", {user: req.user});
       });
     }
   });
+});
+
+app.post("/submit", function (req, res) {
+  const submittedSecret = req.body.secret;
+  console.log(submittedSecret);
+  console.log(req.query.userId);
+
+  User.findById(req.query.userId, function (err, user) {
+    if (err) {
+      console.log(err);
+    } else {
+      if (user) {
+        user.secret = submittedSecret;
+        user.save();
+        res.redirect("/secrets");
+      }
+    }
+  });
+});
+
+app.get("/submit", (req, res) => {
+  if (req.isAuthenticated) {
+    res.render("submit", { user: req.user });
+  } else {
+    res.redirect("/");
+  }
+});
+
+app.get("/logout", function (req, res) {
+  req.logout();
+  res.redirect("/");
 });
 
 // app.post("/register", (req, res) => {
